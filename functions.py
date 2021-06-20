@@ -152,11 +152,14 @@ class WindowGenerator():
 
         predictions = model(inputs)
 
-        if net_type == 'lstm' or net_type == 'rnn': 
+        #El 1er if es para el caso de redes donde no hacemos reshape (el output shape tiene 2 dimensiones). El segundo, donde si lo hacemos 
+        # (el output shape tiene 3 dimensiones)
+        if net_type == 'lstm' or net_type == 'rnn' or net_type == 'gru': 
             plt.scatter(self.label_indices*30, predictions,
                       marker='X', edgecolors='k', label='Predictions',
                       c='#ff7f0e', s=64)
-        if net_type == 'cnn' or net_type == 'gru': 
+
+        if net_type == 'cnn' : 
             plt.scatter(self.label_indices*30, predictions[n, :, label_col_index],
                       marker='X', edgecolors='k', label='Predictions',
                       c='#ff7f0e', s=64)
@@ -434,14 +437,14 @@ def train_and_test_model_multiple_configs(net_type, model, model_name, configs, 
         if net_type =='rnn':
             model.layers[-1].units = labels_num
             new_model = model_from_json(model.to_json())
-            new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
+            #new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
             
         if net_type == 'gru':
             
             #model.layers[0].kernel_size = steps_num
             model.layers[-1].units = labels_num
             new_model = model_from_json(model.to_json())
-            new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
+            #new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
 
         history, val_performance, test_performance = train_and_test_model(steps_num, labels_num, shifts_num, new_model, max_epochs, net_type)
 
