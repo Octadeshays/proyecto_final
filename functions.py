@@ -441,7 +441,7 @@ def train_and_test_model_multiple_configs(net_type, model, model_name, configs, 
             #model.layers[0].kernel_size = steps_num
             model.layers[-1].units = labels_num
             new_model = model_from_json(model.to_json())
-            #new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
+            new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
 
         history, val_performance, test_performance = train_and_test_model(steps_num, labels_num, shifts_num, new_model, max_epochs, net_type)
 
