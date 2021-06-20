@@ -151,11 +151,12 @@ class WindowGenerator():
       if model is not None:
 
         predictions = model(inputs)
-        if net_type == 'lstm': 
+
+        if net_type == 'lstm' or net_type == 'rnn': 
             plt.scatter(self.label_indices*30, predictions,
                       marker='X', edgecolors='k', label='Predictions',
                       c='#ff7f0e', s=64)
-        if net_type == 'cnn' or net_type == 'rnn': 
+        if net_type == 'cnn': 
             plt.scatter(self.label_indices*30, predictions[n, :, label_col_index],
                       marker='X', edgecolors='k', label='Predictions',
                       c='#ff7f0e', s=64)
