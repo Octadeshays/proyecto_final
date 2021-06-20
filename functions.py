@@ -156,7 +156,7 @@ class WindowGenerator():
             plt.scatter(self.label_indices*30, predictions,
                       marker='X', edgecolors='k', label='Predictions',
                       c='#ff7f0e', s=64)
-        if net_type == 'cnn': 
+        if net_type == 'cnn' or net_type == 'gru': 
             plt.scatter(self.label_indices*30, predictions[n, :, label_col_index],
                       marker='X', edgecolors='k', label='Predictions',
                       c='#ff7f0e', s=64)
