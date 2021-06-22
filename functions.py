@@ -488,5 +488,5 @@ def train_and_test_model_multiple_configs(net_type, model, model_name, configs, 
 
     results_df.to_csv(address, index=False)
 
-    return results_df
+    return results_df, new_model
 
