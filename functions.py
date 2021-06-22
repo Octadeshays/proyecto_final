@@ -96,7 +96,6 @@ class WindowGenerator():
     self.label_start = self.total_window_size - self.label_width
     self.labels_slice = slice(self.label_start, None)
     self.label_indices = np.arange(self.total_window_size)[self.labels_slice]
-    
 
     
   def split_window(self, features):
@@ -113,7 +112,7 @@ class WindowGenerator():
 
     return inputs, labels
 
-  def plot(self, model=None, plot_col='node', max_subplots=3, net_type = None, scaler=None, use_scaler = False):
+  def plot(self, model=None, plot_col='node', max_subplots=3, net_type = None):
     #aux = random.randint(0, (len(self.test_df)-self.total_window_size))  #No vamos a printear en random, sino en un punto determinado para q todos los graficos sean iguales
     aux = 1 #Vamos a printear desde el punto 1
     
@@ -147,17 +146,10 @@ class WindowGenerator():
 
         #El 1er if es para el caso de redes donde no hacemos reshape (el output shape tiene 2 dimensiones). El segundo, donde si lo hacemos 
         # (el output shape tiene 3 dimensiones)
-        if net_type == 'lstm' or net_type == 'rnn' or net_type == 'gru' or net_type == 'bi_lstm':
-            if use_scaler:
-              inversed = scaler.inverse_transform(predictions)
-              labels = scaler.inverse_transform(self.label_indices*30)    
-              plt.scatter(labels, inversed,
-                        marker='X', edgecolors='k', label='Predictions',
-                        c='#ff7f0e', s=64)
-            else:
-              plt.scatter(self.label_indices*30, predictions,
-                        marker='X', edgecolors='k', label='Predictions',
-                        c='#ff7f0e', s=64)
+        if net_type == 'lstm' or net_type == 'rnn' or net_type == 'gru' or net_type == 'bi_lstm': 
+            plt.scatter(self.label_indices*30, predictions,
+                      marker='X', edgecolors='k', label='Predictions',
+                      c='#ff7f0e', s=64)
 
         if net_type == 'cnn': 
             plt.scatter(self.label_indices*30, predictions[n, :, label_col_index],
@@ -323,7 +315,7 @@ def plot_history(history):
 
 #Definimos una funcion para hacer todo esto en las futuras iteraciones
 
-def train_and_test_model(steps_num, labels_num, shifts_num, model, max_epochs, net_type, scaler):
+def train_and_test_model(steps_num, labels_num, shifts_num, model, max_epochs, net_type):
 
     step_window = WindowGenerator(input_width = steps_num, label_width= labels_num , shift = shifts_num, label_columns=['node'])
     #step_window.plot()
@@ -377,7 +369,7 @@ def train_and_test_model(steps_num, labels_num, shifts_num, model, max_epochs, n
     
     #Imprimimos prediccion
     #step_window.plot(model)
-    step_window.plot(model, net_type = net_type, scaler = scaler, use_scaler=True)
+    step_window.plot(model, net_type = net_type)
     return history, val_performance, test_performance
 
 
@@ -387,7 +379,7 @@ def train_and_test_model(steps_num, labels_num, shifts_num, model, max_epochs, n
 
 
 #Funcion para testear muchas configuraciones para un modelo 
-def train_and_test_model_multiple_configs(net_type, model, model_name, configs, max_epochs, scaler):
+def train_and_test_model_multiple_configs(net_type, model, model_name, configs, max_epochs):
 
     model_name_list = []
     net_type_list = []
@@ -437,7 +429,7 @@ def train_and_test_model_multiple_configs(net_type, model, model_name, configs, 
             #new_model.add(tf.keras.layers.Reshape([labels_num, 1])) #agregamos capa para hacer reshape
             
 
-        history, val_performance, test_performance = train_and_test_model(steps_num, labels_num, shifts_num, new_model, max_epochs, net_type, scaler)
+        history, val_performance, test_performance = train_and_test_model(steps_num, labels_num, shifts_num, new_model, max_epochs, net_type)
 
         #Ploteamos loss de train vs validation
         plot_history(history)
