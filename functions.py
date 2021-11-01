@@ -6,7 +6,7 @@ import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 #TF
 from keras.models import Sequential
@@ -489,4 +489,165 @@ def train_and_test_model_multiple_configs(net_type, model, model_name, configs, 
     results_df.to_csv(address, index=False)
 
     return {'results': results_df, 'model' : new_model}
+
+
+  
+########################################################################################################################
+
+
+#Funcion para cortar dataset de forma random para simular entrada de datos en orbita. Sube a Drive un .csv de datos de input
+def cut_dataset_random(data, period=570, orbit_time=5400, dt=30): #el period esta definido en 570 para conseguir 20 puntos medidos
+    data_cut=data.copy()
+    data_cut.loc[:,:]=np.nan
+    N=data.index.tolist()[-1] #hacemos una lista con el index
+    N_orbitas=int(N/orbit_time)
+
+    for i in range(N_orbitas):
+        encendido=np.random.randint(i*orbit_time/dt, (i+1)*orbit_time/dt)
+        encendido=encendido*dt
+        apagado=encendido+period
+
+        data_cut.loc[encendido:apagado, :]=data.loc[encendido:apagado, :]
+    return data_cut
+
+  
+########################################################################################################################
+  
+#Funcion para testear desempeño en orbita
+def test_model_on_orbit_random(model_to_use, orbits = 5, node_to_extract = 1, max_epochs = 20):
+
+    #Parametros de funcion:
+    #orbits = 5
+    #node_to_extract = 1
+
+    #Importamos la data
+    temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['seconds'])
+
+    #Definimos tamaño para imprimir los dataframe
+    plt.rcParams["figure.figsize"] = (20,5)
+
+    #Reduzco el data set a un solo nodo
+    temp_df_node = pd.DataFrame(temp_df['Node %i' % (node_to_extract)])
+
+    #Generamos el dataframe de data cortada (tomada de orbita)
+    temp_df_node_cut=cut_dataset_random(temp_df)
+
+    #Recortamos los datasets a un cierto numero de orbitas
+    temp_df_node_less_orbits = temp_df_node[0:180*orbits] #sabiendo que tenemos 180 puntos por orbita
+    temp_df_node_cut_less_orbits = temp_df_node_cut[0:180*orbits] #sabiendo que tenemos 180 puntos por orbita
+    plt.plot(temp_df_node_less_orbits.loc[:, 'Node %i' % (node_to_extract)], 'r')
+    plt.plot(temp_df_node_cut_less_orbits.loc[:, 'Node %i' % (node_to_extract)])
+
+    #Obtenemos los indices de las filas que no tienen Nan
+    index_with_values = [index for index, row in temp_df_node_cut_less_orbits.iterrows() if not row.isnull().any()]
+
+    #Inicializamos variables antes de la iteracion
+    predict_stop_flag = 0
+    current_orbit = 0
+
+    #Inicializamos el dataframe de predicciones total
+    index_list = list(temp_df_node_cut_less_orbits.index) 
+    total_predictions_df = pd.DataFrame({'seconds': index_list})
+    total_predictions_df['Node %i' % (node_to_extract)] = 100000 #ponemos un valor dummy
+    total_predictions_df.set_index('seconds', inplace = True)
+
+    while(predict_stop_flag == 0):
+
+        print('\nOrbita actual: ',current_orbit)
+
+        #Conseguimos valores de input de la orbita actual
+        input_values_indexes = index_with_values[current_orbit*20: current_orbit*20 + 20]
+        
+        #Verificamos que sean 20 puntos de input, en caso de no serlo, frenamos la ejecucion
+        if len(input_values_indexes) != 20:
+            print('ERROR: Los valores de input no son 20. Son: ', len(input_values_indexes))
+            predict_stop_flag = 1
+        
+        #Definimos cuantos puntos de output necesitamos en esta orbita
+
+        #Definimos el primer punto a predecir
+        first_predicted_index = input_values_indexes[-1] + 30 #Primer punto a predecir. Son 30 segundos luego de el ultimo valor de la lista
+
+        #Definimos el ultimo punto a predecir
+        if current_orbit < orbits - 1:     #este es el caso de si no estamos en la ultima orbita
+            last_predicted_index = index_with_values[current_orbit*20 + 20] - 30 #es el proximo valor conocido de la lista, pero con 30 segundos restados
+
+        elif current_orbit == orbits - 1: #Si estamos en la ultima orbita, no tendremos puntos restantes conocidos en la lista. En este caso, tomamos el ultimo punto del dataframe
+            last_predicted_index = temp_df_node_cut_less_orbits.index[-1]
+
+        #Obtenemos los puntos de output
+        points_to_predict = int((last_predicted_index - first_predicted_index) / 30) #restamos los indices (los segundos) de los puntos a predecir y lo dividimos por el tiempo de muestreo
+
+        configs_list = [[20,points_to_predict]]
+
+        #Entrenamos el modelo
+
+        model_output = train_and_test_model_multiple_configs('cnn', model_to_use, nameof(model_to_use), configs_list, max_epochs)
+
+        #Guardamos los puntos para evaluar 
+        input_values = temp_df_node_less_orbits.loc[input_values_indexes,'Node %i' % (node_to_extract)].to_list()
+
+        #Hacemos la prediccion de los input_values 
+        input_values_array_reshaped = np.reshape(input_values, (1,20,1)) #el input_size es 20
+
+        model_predictions = model_output['model'].predict(input_values_array_reshaped)
+        model_predictions_list = list(np.reshape(model_predictions, (points_to_predict)))
+
+        #Creamos dataframe con resultados predichos
+        predicted_indexes = [*range(first_predicted_index, last_predicted_index, 30)]
+
+        index_prediction_dict = dict(zip(predicted_indexes,model_predictions_list)) #creamos diccionario de pares indices-predicciones
+
+        total_predictions_df['Node %i' % (node_to_extract)].update(pd.Series(index_prediction_dict)) #reemplazamos las predicciones en el dataframe
+
+        #Actualizamos la orbita
+        current_orbit += 1
+
+        #Si llegamos al limite de orbitas, frenamos
+        if current_orbit >= orbits:
+            predict_stop_flag = 1
+
+    #Reemplazamos el valor dummy del Dataframe de predicciones por NaNs
+    total_predictions_df['Node %i' % (node_to_extract)].replace({100000.000000: np.nan}, inplace=True)
+
+    #Imprimimos al final
+    #plt.plot(temp_df_node_less_orbits.loc[:, 'Node %i' % (node_to_extract)], 'r')  #data original
+    plt.plot(temp_df_node_cut_less_orbits.loc[:, 'Node %i' % (node_to_extract)]) #data de orbita
+    plt.plot(total_predictions_df.loc[:, 'Node %i' % (node_to_extract)], 'y') #prediccion del modelo
+
+    ################################################################
+    #Subimos .csv de inputs y outputs a Google Drive
+    ################################################################
+
+    #Creamos diccionario con pares 'seconds' - 'fecha de lectura'
+    seconds_list = list(temp_df.index)
+    datetime_created_at_list = []
+
+    current_datetime = datetime.now()
+
+    for i in range(len(seconds_list)):
+
+        if i == 0: #en la primera iteracion definimos el datetime actual
+            datetime_created_at_list.append(current_datetime)
+        else:
+            datetime_created_at_list.append(datetime_created_at_list[-1] + timedelta(seconds = 30))
+
+    datetime_created_at_list = [date_obj.strftime("%d/%m/%Y %H:%M:%S") for date_obj in datetime_created_at_list] #pasamos tipo de datos de datetime a string
+
+    seconds_datetime_dict = dict(zip(seconds_list,datetime_created_at_list)) #creamos diccionario de pares 'seconds' - 'fecha de lectura'
+
+    #Creamos dataframe de inputs para subir a Drive
+    temp_df_node_cut_less_orbits_to_upload = temp_df_node_cut_less_orbits.dropna() #quitamos los NaNs
+    temp_df_node_cut_less_orbits_to_upload["datetime_created_at"] = np.nan
+    temp_df_node_cut_less_orbits_to_upload['datetime_created_at'].update(pd.Series(seconds_datetime_dict)) #reemplazamos los datetime en el dataframe
+
+    #Creamos dataframe de outputs para subir a Drive
+    total_predictions_df_to_upload = total_predictions_df.dropna() #quitamos los NaNs
+    total_predictions_df_to_upload["datetime_created_at"] = np.nan
+    total_predictions_df_to_upload['datetime_created_at'].update(pd.Series(seconds_datetime_dict)) #reemplazamos los datetime en el dataframe
+
+    #Guardamos csvs en carpetas de Drive
+    temp_df_node_cut_less_orbits_to_upload.to_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Notebooks/input_history/input_{}.csv'.format(current_datetime.strftime("%d_%m_%Y_%H:%M:%S") ))
+    total_predictions_df_to_upload.to_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Notebooks/output_history/output_{}.csv'.format(current_datetime.strftime("%d_%m_%Y_%H:%M:%S") ))
+
 
