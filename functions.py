@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 from datetime import datetime, timedelta
+from varname import varname, nameof
+
 
 #TF
 from keras.models import Sequential
