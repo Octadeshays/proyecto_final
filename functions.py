@@ -22,10 +22,13 @@ from keras.models import model_from_json
 
 ########################################################################################################################
 
-#Importamos la data
+#Importamos el dataframe y pasamos de usar la columna datetime a segundos
 
-temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['seconds'])
-#temp_df.head()
+#temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['seconds'])
+temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['datetime'])
+temp_df.insert(0, 'seconds', range(0, (len(temp_df))*30, 30))
+temp_df.set_index( 'seconds', inplace = True )
+
 
 #Definimos tamaño para imprimir los dataframe
 plt.rcParams["figure.figsize"] = (20,5)
@@ -522,8 +525,12 @@ def test_model_on_orbit_random(model_to_use, orbits = 5, node_to_extract = 1, ma
     #orbits = 5
     #node_to_extract = 1
 
-    #Importamos la data
-    temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['seconds'])
+    #Importamos el dataframe y pasamos de usar la columna datetime a segundos
+
+    #temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['seconds'])
+    temp_df = pd.read_csv('/content/drive/MyDrive/Proyecto Final Mecatronica /Datasets/data_temp_with_noise.csv', index_col=['datetime'])
+    temp_df.insert(0, 'seconds', range(0, (len(temp_df))*30, 30))
+    temp_df.set_index( 'seconds', inplace = True )
 
     #Definimos tamaño para imprimir los dataframe
     plt.rcParams["figure.figsize"] = (20,5)
