@@ -237,6 +237,8 @@ def compile_and_fit(model, window, max_epochs = 20, patience=2):
   history = model.fit(window.train, epochs=max_epochs,
                       validation_data=window.val,
                       callbacks=[early_stopping], verbose = 0)
+  
+  model.save("model.h5")
   return history
   
   
